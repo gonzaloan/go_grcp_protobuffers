@@ -133,5 +133,5 @@ var StudentService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "studentpb/student.studentpb",
+	Metadata: "studentpb/student.proto",
 }
