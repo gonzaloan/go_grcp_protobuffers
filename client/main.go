@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"goProtogRPC/testpb"
+	"io"
 	"log"
 	"time"
 
@@ -19,7 +20,9 @@ func main() {
 
 	c := testpb.NewTestServiceClient(cc)
 	//DoUnary(c)
-	DoClientStreaming(c)
+	//DoClientStreaming(c)
+	//DoServerStreaming(c)
+	DoBidirectionalStreaming(c)
 }
 
 func DoUnary(c testpb.TestServiceClient) {
@@ -68,4 +71,58 @@ func DoClientStreaming(c testpb.TestServiceClient) {
 		log.Fatalf("error while receiving response: %v", err)
 	}
 	log.Printf("response from server: %v", msg)
+}
+
+func DoServerStreaming(c testpb.TestServiceClient) {
+	req := &testpb.GetStudentsPerTestRequest{TestId: "t1"}
+	stream, err := c.GetStudentsPerTest(context.Background(), req)
+	if err != nil {
+		log.Fatalf("error while calling GetStudents: %v", err)
+	}
+	for {
+		msg, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatalf("error while receiving response: %v", err)
+		}
+		log.Printf("response from server: %v", msg)
+	}
+}
+
+func DoBidirectionalStreaming(c testpb.TestServiceClient) {
+	answer := testpb.TakeTestRequest{Answer: "42"}
+	numberOfQuestions := 4
+
+	//Go routing for every question to simulate
+	waitChannel := make(chan struct{})
+	stream, err := c.TakeTest(context.Background())
+	if err != nil {
+		log.Fatalf("error while receiving response: %v", err)
+	}
+
+	//Send questions
+	go func() {
+		for i := 0; i < numberOfQuestions; i++ {
+			stream.Send(&answer)
+			time.Sleep(2 * time.Second)
+		}
+	}()
+	//Receive
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("error while reading stream: %v", err)
+				break
+			}
+			log.Printf("response from server: %v", res)
+		}
+	}()
+
+	<-waitChannel
 }
